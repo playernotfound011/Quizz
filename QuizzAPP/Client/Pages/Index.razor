@@ -1,0 +1,211 @@
+﻿@page "/"
+@inject IUserService UserService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response
+@using Microsoft.AspNetCore.Components.Web
+
+
+<AuthorizeView>
+    <Authorized>
+        <UserRedirect/>
+    </Authorized>
+</AuthorizeView>
+
+<PageTitle>Quizz</PageTitle>
+
+<SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2" 
+    style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;"/>
+
+<h1>Cuestionarios!</h1>
+
+Bievenido a la APP para crear cuestionarios, ingresa para generar un nuevo cuestionario o registrate para contestar los cuestionarios ya creados.
+
+<br />
+<hr />
+<br />
+
+<h3>Iniciar sesión</h3>
+
+<EditForm Model="@userLog" class="col-sm-4" OnSubmit="@HandleSubmitLog">
+    <DataAnnotationsValidator />
+    <div class="form-group">
+        <label>Nombre de usuario</label>
+        <input id="UserName" class="form-control" @bind="userLog.UserName" />
+        <ValidationMessage For="@(() => userLog.UserName)" />
+    </div>
+    <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="UserName" class="form-control" @bind="userLog.Password" />
+        <ValidationMessage For="@(() => userLog.Password)" />
+    </div>
+    <br />
+    <button class="btn btn-primary" type="submit" disabled="@spinner">Ingresar</button>
+    @if (showFailedMessageLogin)
+    {
+        <br />
+        <br />
+        <div class="alert alert-danger text-center">
+            @ResponseMessage
+        </div>
+    }
+</EditForm>
+
+<br/>
+<hr />
+<br />
+
+<h3>Registro de usuario</h3>
+
+<EditForm Model="@userReg" class="col-sm-4" OnSubmit="@HandleSubmitReg">
+    <DataAnnotationsValidator/>
+    <div class="form-group">
+        <div class="">
+            <label>Nombre de usuario</label>
+            <InputText class="form-control" id="UserName" @bind-Value="@userReg.UserName" />
+            <ValidationMessage For="@(() => userReg.UserName)"/>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="">
+            <label>Contraseña</label>
+            <InputText class="form-control" type="password" id="Password" @bind-Value="@userReg.Password" />
+            <ValidationMessage For="@(() => userReg.Password)" />
+        </div>
+    </div>
+    <br />
+    <button class="btn btn-primary" type="submit" disabled="@spinner">Registrarse</button>
+    
+    @if (showSuccessMessage)
+    {
+        <br />
+        <br />
+        <div class="alert alert-success text-center">
+            @ResponseMessage
+        </div>
+    }
+    @if (showFailedMessage)
+    {
+        <br />
+        <br />
+        <div class="alert alert-danger text-center">
+            @ResponseMessage
+        </div>
+    }
+    
+</EditForm>
+
+@code {
+    private UserLogin userLog = new UserLogin();
+    private UserRegistration userReg = new UserRegistration();
+    public bool spinner = false;
+    private bool showSuccessMessage = false;
+    private bool showFailedMessage = false;
+    private bool showFailedMessageLogin = false;
+    private string ResponseMessage = "";
+
+    async Task HandleSubmitLog(EditContext editContext)
+    {
+        showFailedMessageLogin = false;
+        showFailedMessage = false;
+        spinner = true;
+        bool formIsValid = editContext.Validate();
+
+        if (formIsValid)
+        {
+            ApiResponse<LoginInfo> response = await UserService.UserLogin(userLog);
+            ResponseMessage = response.Message;
+
+            if (response != null)
+            {
+                if (response.Data != null)
+                {
+                    var data = response.Data;
+                    var token = data.Token;
+                    await LocalStorage.SetItemAsync("token", token);
+                    await AuthStateProvider.GetAuthenticationStateAsync();
+
+                    //var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+                    //string role = jwt.Claims.First(c => c.Type == ClaimTypes.Role).Value;
+
+                    spinner = false;
+
+                    if (data.Role == "ADM")
+                    {
+                        NavigationManager.NavigateTo("user");
+                    }
+                    else if (data.Role == "USR")
+                    {
+                        NavigationManager.NavigateTo("quizzhome");
+                    }
+                }
+                else
+                {
+                    showFailedMessageLogin = true;                  
+                }
+            }
+        }else
+        {
+            showFailedMessageLogin = true;
+            ResponseMessage = "¡Completa los campos!";
+        }      
+        spinner = false;
+    }
+
+    async Task HandleSubmitReg(EditContext editContext)
+    {
+        ResponseMessage = "";
+        spinner = true;
+        showSuccessMessage = false;
+        showFailedMessageLogin = false;
+        showFailedMessage = false;
+
+        bool formIsValid = editContext.Validate();
+
+        if (formIsValid)
+        {
+            ApiResponse<UserQuizz> response = await UserService.UserRegistration(userReg);
+
+            ResponseMessage = response.Message;
+
+            if (response.Data != null)
+            {
+                
+
+                if (response.Message == "¡Registro exitoso!")
+                {
+                    showSuccessMessage = true;
+                }
+
+                if (response.Message == "El nombre de usuario ya existe.")
+                {
+                    showFailedMessage = true;
+                }
+            }
+            else if (response.Data == null)
+            {
+                showFailedMessage = true;               
+            }
+
+            ResetUserForm();
+        }
+        else
+        {
+            showFailedMessage = true;
+            ResponseMessage = "¡Completa los campos!";
+        } 
+        
+        spinner = false;
+    }
+
+    private void ResetUserForm()
+    {
+        this.userReg = new UserRegistration
+            {
+                UserName = "",
+                Password = "",
+            };
+    }
+}

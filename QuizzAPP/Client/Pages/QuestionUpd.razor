@@ -1,0 +1,223 @@
+﻿@page "/question"
+@page "/question/{id:int}"
+@inject IQuizzService QuizzService
+@inject IUserService UserService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response
+
+<CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized>
+            <h3>Editar preguntas de @quizzes.Name</h3>
+            <br />
+            <div class="alert alert-primary" role="alert">
+                    Solo puedes modificar el enunciado de la pregunta y sus respuestas.
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Pregunta</th>
+                        <th>Opcion 1</th>
+                        <th>Opcion 2</th>
+                        <th>Opcion 3</th>
+                        <th>Opcion 4</th>
+                        <th>Respuesta correcta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var question in questions)
+                    {
+                        <tr>
+                            <td>@question.QuestionId</td>
+                            <td>@question.Statement</td>
+                            <td>@question.Option1</td>
+                            <td>@question.Option2</td>
+                            <td>@question.Option3</td>
+                            <td>@question.Option4</td>
+                            <td>@question.CorrectAnswer</td>
+                            <td>
+                                <button class="btn btn-primary" @onclick="(() => UpdateQuestion(question.QuestionId))">Editar <i class="oi oi-arrow-right"></i></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <br />
+            <hr />
+            <br />
+            <div hidden="@showEditBox">
+                <h3>Editar</h3>
+                <EditForm class="col-sm-4" Model="@singleQuestion" OnSubmit="@HandleSubmit" Context="editquestion">
+                    <DataAnnotationsValidator />
+                    <div class="form-group">
+                        <label>Pregunta</label>
+                        <InputText class="form-control" id="statement" @bind-Value="@singleQuestion.Statement"/>
+                        <ValidationMessage For="@(() => singleQuestion.Statement)" />
+                    </div>
+                    <div class="form-group">
+                        <label>1ra alternativa</label>
+                        <InputText class="form-control" id="option1" @bind-Value="singleQuestion.Option1"/>
+                        <ValidationMessage For="@(() => singleQuestion.Option1)" />
+                    </div>
+                    <div class="form-group">
+                        <label>2da alternativa</label>
+                        <InputText class="form-control" id="option2" @bind-Value="singleQuestion.Option2"/>
+                        <ValidationMessage For="@(() => singleQuestion.Option2)" />
+                    </div>
+                    <div class="form-group">
+                        <label>3ra alternativa</label>
+                        <InputText class="form-control" id="option3" @bind-Value="singleQuestion.Option3"/>
+                        <ValidationMessage For="@(() => singleQuestion.Option3)" />
+                    </div>
+                    <div class="form-group">
+                        <label>4ta alternativa</label>
+                        <InputText class="form-control" id="option4"  @bind-Value="singleQuestion.Option4"/>
+                        <ValidationMessage For="@(() => singleQuestion.Option4)" />
+                    </div>
+                    <br />
+                    <button class="btn btn-primary" type="submit">Actualizar</button>
+                    <br />
+                    <br />
+                    
+                </EditForm>
+            </div>
+            @if (showSuccessMessage)
+            {
+                <div class="alert alert-success text-center">
+                    @ResponseMessage
+                </div>
+            }
+            @if (showFailedMessageQuizz)
+            {
+                <br />
+                <div class="alert alert-danger text-center">
+                    @ResponseMessage
+                </div>
+            }                   
+        </Authorized>
+    </AuthorizeView>
+</CascadingAuthenticationState>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    private QuizzQuestionsUpd quizzQuestions = new QuizzQuestionsUpd();
+    private Quizzes quizzes = new Quizzes();
+    private List<QuestionsReg> questions = new List<QuestionsReg>();
+    private QuestionsReg singleQuestion = new QuestionsReg();
+    private QuestionUpdate questionUpdate = new QuestionUpdate();
+    private UserToken userToken = new UserToken();
+    private bool showEditBox = true;
+    private bool showFailedMessageQuizz = false;
+    private bool showSuccessMessage = false;
+    private bool showFailedMessage = false;
+    private string ResponseMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != null)
+        {
+            var token = await LocalStorage.GetItemAsStringAsync("token");
+
+            userToken.chainValue = token;
+
+            var roleResponse = await UserService.GetUserType(userToken);
+            string role = roleResponse.Data.Type;
+            string userName = roleResponse.Data.UserName;
+
+            ApiResponse<QuizzQuestionsUpd> response = await QuizzService.GetQuizzQuestionUpd((int)Id);
+
+            if (role == "ADM")
+            {               
+                quizzQuestions = response.Data;
+                quizzes = quizzQuestions.Quizz;
+                questions = quizzQuestions.Question;
+            }
+            else
+            {
+                QuizzQuestionsUpd checkQuizzQuestions = response.Data;
+                Quizzes checkQuizzes = checkQuizzQuestions.Quizz;
+
+                if (checkQuizzes.Creator == userName)
+                {
+                    quizzQuestions = response.Data;
+                    quizzes = quizzQuestions.Quizz;
+                    questions = quizzQuestions.Question;
+                }else
+                {
+                    NavigationManager.NavigateTo("quizzhome");
+                }                
+            }
+        }else
+        {
+            NavigationManager.NavigateTo("quizzhome");
+        }
+    }
+
+    void UpdateQuestion(int id)
+    {
+        showFailedMessageQuizz = false;
+        showSuccessMessage = false;
+        showFailedMessage = false;
+
+        var selectQuestion = (from a in questions
+                              where a.QuestionId == id
+                              select a).FirstOrDefault();
+
+        singleQuestion = selectQuestion;
+        showEditBox = false;
+    }
+
+    async Task HandleSubmit(EditContext editContext)
+    {
+        showFailedMessageQuizz = false;
+        showSuccessMessage = false;
+        showFailedMessage = false;
+        bool formIsValid = editContext.Validate();
+
+        if (formIsValid)
+        {
+            questionUpdate.QuizzId = (int)Id;
+            questionUpdate.UpdateQuestion = singleQuestion;
+
+            var resp = await QuizzService.UpdateQuestion(questionUpdate);
+            ResponseMessage = resp.Message;
+
+            if (resp.Message != "Cuestionario modificado!")
+            {
+                showFailedMessage = true;
+            }
+            else
+            {
+                await updateQuestions();
+                showEditBox = true;
+                showSuccessMessage = true;
+            }
+        }
+        else
+        {
+            showFailedMessageQuizz = true;
+            ResponseMessage = "¡Completa los campos!";
+        }
+    }
+
+    async Task updateQuestions()
+    {
+        if (Id != null)
+        {
+            ApiResponse<QuizzQuestionsUpd> response = await QuizzService.GetQuizzQuestionUpd((int)Id);
+
+            quizzQuestions = response.Data;
+            quizzes = quizzQuestions.Quizz;
+            questions = quizzQuestions.Question;
+        }else
+        {
+            NavigationManager.NavigateTo("quizzhome");
+        }        
+    }
+}

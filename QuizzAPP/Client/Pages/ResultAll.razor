@@ -1,0 +1,92 @@
+﻿@page "/resultquizz"
+@page "/resultquizz/{id:int}"
+@inject IQuizzService QuizzService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response
+
+<CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized>
+            <SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2"
+                style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;" />
+            
+                <h3>Resultados del Cuestionario @quizzName</h3>
+                @if (showResult)
+                {
+                    <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Usuario</th>
+                            <th>Intentos</th>
+                            <th>Puntaje mas alto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var results in allResults)
+                        {
+                            <tr>
+                                <td>@results.QuizzName</td>
+                                <td>@results.Username</td>
+                                <td>@results.Attempts</td>
+                                <td>@results.TopScore</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                }else 
+                {
+                    if (showFailedMessage)
+                    {
+                         <br />
+                         <br />
+                         <div class="alert alert-danger text-center">
+                            @ResponseMessage
+                         </div>
+                    }                    
+                }
+
+
+
+                <hr />
+        </Authorized>
+    </AuthorizeView>
+</CascadingAuthenticationState>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    public List<AllResults> allResults = new List<AllResults>();
+    public string quizzName;
+    private bool showResult = false;
+    private bool spinner = false;
+    private string ResponseMessage = "";
+    private bool showFailedMessage = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        spinner = true;
+
+        if (Id != null)
+        {
+            ApiResponse<List<AllResults>> response = await QuizzService.GetAllResult((int)Id);
+
+            if (response.Data.Any())
+            {
+                allResults = response.Data;
+                quizzName = allResults[0].QuizzName;
+                showResult = true;
+            }else
+            {
+                showFailedMessage = true;
+                ResponseMessage = "No hay resultados.";
+            }
+        }
+
+        spinner = false;
+    }
+}

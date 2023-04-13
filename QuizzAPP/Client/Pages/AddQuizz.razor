@@ -1,0 +1,269 @@
+﻿@page "/addquizz"
+@inject IQuizzService QuizzService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+
+<CascadingAuthenticationState>
+    <AuthorizeView Context="reg">
+        <Authorized>
+            <SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2" 
+                style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;"/>
+
+            <h3>Nuevo Cuestionario</h3>
+            <EditForm Model="@quizzReg" class="col-sm-4" OnSubmit="@HandleSubmitRegQuizz" Context="quizzname">
+                <DataAnnotationsValidator />
+                <div class="form-group">
+                    <label>Nombre del cuestionario</label>
+                    <InputText class="form-control" id="quizzName" @bind-Value="@quizzReg.Name" />
+                    <ValidationMessage For="@(() => quizzReg.Name)" />
+                </div>
+                @if (showSuccessMessage)
+                {
+                    <br />
+                    <br />
+                    <div class="alert alert-success text-center">
+                        @ResponseMessage
+                    </div>
+                }
+                @if (showFailedMessageQuizz)
+                {
+                    <br />
+                    <div class="alert alert-danger text-center">
+                        @ResponseMessage
+                    </div>
+                }
+                <EditForm Model="@questionsReg" OnSubmit="@AddQuestion" Context="questions">
+                    <DataAnnotationsValidator />
+                    <hr />
+                    <h3>Añade las preguntas</h3>
+                    <div class="form-group">
+                        <label>Pregunta</label>
+                        <InputText class="form-control" id="statement" @bind-Value="@questionsReg.Statement" />
+                        <ValidationMessage For="@(() => questionsReg.Statement)" />
+                    </div>
+                    <div class="form-group">
+                        <label>1ra alternativa</label>
+                        <InputText class="form-control" id="option1" @bind-Value="@questionsReg.Option1" />
+                        <ValidationMessage For="@(() => questionsReg.Option1)" />
+                    </div>
+                    <div class="form-group">
+                        <label>2da alternativa</label>
+                        <InputText class="form-control" id="option2" @bind-Value="@questionsReg.Option2" />
+                        <ValidationMessage For="@(() => questionsReg.Option2)" />
+                    </div>
+                    <div class="form-group">
+                        <label>3ra alternativa</label>
+                        <InputText class="form-control" id="option3" @bind-Value="@questionsReg.Option3" />
+                        <ValidationMessage For="@(() => questionsReg.Option3)" />
+                    </div>
+                    <div class="form-group">
+                        <label>4ta alternativa</label>
+                        <InputText class="form-control" id="1" @bind-Value="@questionsReg.Option4" />
+                        <ValidationMessage For="@(() => questionsReg.Option4)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Alternativa correcta</label>
+                        <InputSelect @bind-Value="questionsReg.CorrectAnswer" class="form-select">
+                            @foreach (var item in Options)
+                            {
+                                <option value="@item.id">@item.name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => questionsReg.CorrectAnswer)" />
+                    </div>
+                    <br />
+                    <button class="btn btn-primary" type="submit" disabled="@spinner">Añadir Pregunta</button>
+                    <br />
+                    <br />
+                     @if (showSuccessMessageQuestion)
+                     {
+                        <div class="alert alert-success text-center">
+                            @ResponseMessage
+                        </div>
+                        <br />
+                        <br />
+                     }
+                </EditForm>
+                <button class="btn btn-danger" type="submit" disabled="@spinner">Finalizar Cuestionario</button>
+            </EditForm>
+
+            <br />
+            <hr />
+            <br />
+            
+            @if (questionsRegList.Count > 0)
+            {
+                <h3>Preguntas Añadidas</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Pregunta</th>
+                            <th>Alternativa</th>
+                            <th>Respuesta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in questionsRegList)
+                        {
+                            <tr>
+                                <td>@item.Statement</td>
+                                <td>@item.CorrectAnswer</td>
+                                <td>
+                                    @switch (item.CorrectAnswer)
+                                    {
+                                        case 1:
+                                            @item.Option1;
+                                            break;
+                                        case 2:
+                                            @item.Option2;
+                                            break;
+                                        case 3:
+                                            @item.Option3;
+                                            break;
+                                        case 4:
+                                            @item.Option4;
+                                            break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <hr />
+            }
+        </Authorized>
+    </AuthorizeView>
+    @*<AuthorizeView Roles="USR">
+        <UserRedirect/>
+    </AuthorizeView>*@
+</CascadingAuthenticationState>
+
+@code {
+    private QuizzReg quizzReg = new QuizzReg();
+    private List<QuestionsReg> questionsRegList = new List<QuestionsReg>();
+    private QuestionsReg questionsReg = new QuestionsReg();
+    private QuizzQuestionsReg quizzQuestionsReg = new QuizzQuestionsReg();
+    private bool spinner = false;
+    private bool showSuccessMessage = false;
+    private bool showFailedMessage = false;
+    private bool showFailedMessageQuizz = false;
+    private string ResponseMessage = "";
+    private bool showSuccessMessageQuestion = false;
+
+    private class Alternative
+    {
+        public int id { get; set; }
+        public string name { get; set; } = string.Empty;
+    }
+
+    void OcultarAlerta()
+    {
+        showSuccessMessageQuestion = false;
+    }
+
+    private List<Alternative> Options { get; set; } = new List<Alternative>
+    {
+        new Alternative { id = 1, name = "Opcion 1"},
+        new Alternative { id = 2, name = "Opcion 2"},
+        new Alternative { id = 3, name = "Opcion 3"},
+        new Alternative { id = 4, name = "Opcion 4"},
+    };
+
+    async Task HandleSubmitRegQuizz(EditContext editContext)
+    {
+        spinner = true;
+        showFailedMessage = false;
+        showFailedMessageQuizz = false;
+        showSuccessMessage = false;
+        bool formIsValid = editContext.Validate();
+
+        if (formIsValid)
+        {
+            if (questionsRegList.Any())
+            {
+                var token = await LocalStorage.GetItemAsStringAsync("token");
+                var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token.Replace("\"", ""));
+                string user = jwt.Claims.First(c => c.Type == ClaimTypes.Name).Value;
+                quizzReg.Creator = user;
+                quizzQuestionsReg.QuizzName = quizzReg;
+                quizzQuestionsReg.Questions = questionsRegList;
+
+                var resp = await QuizzService.QuizRegistration(quizzQuestionsReg);
+                ResponseMessage = resp.Message;
+
+                if (resp.Data != null)
+                {
+                    if (resp.Message == "¡Registro de cuestionario exitoso!")
+                    {
+                        showSuccessMessage = true;
+                    }
+                    if (resp.Message == "El nombre del cuestionario ya existe.")
+                    {
+                        showFailedMessage = true;
+                    }
+                }
+                else
+                {
+                    showFailedMessage = true;
+                }
+
+                ResetQuizzName();
+            }
+            else
+            {
+                showFailedMessageQuizz = true;
+                ResponseMessage = "¡Agrega al menos una pregunta!";
+            }           
+        }else
+        {
+            showFailedMessageQuizz = true;
+            ResponseMessage = "¡Completa los campos!";
+        }
+
+        spinner = false;
+    }
+
+    async Task AddQuestion(EditContext editContext)
+    {
+        showFailedMessageQuizz = false;
+        showSuccessMessage = false;
+        bool formIsValid = editContext.Validate();
+
+        if (formIsValid)
+        {
+            QuestionsReg questions = new QuestionsReg
+                {
+                    Statement = this.questionsReg.Statement,
+                    Option1 = this.questionsReg.Option1,
+                    Option2 = this.questionsReg.Option2,
+                    Option3 = this.questionsReg.Option3,
+                    Option4 = this.questionsReg.Option4,
+                    CorrectAnswer = this.questionsReg.CorrectAnswer
+                };
+
+            questionsRegList.Add(questions);
+
+            showSuccessMessageQuestion = true;
+            ResponseMessage = "Pregunta añadida.";
+        }        
+        ResetQuestionForm();
+    }
+
+    private void ResetQuizzName()
+    {
+        this.quizzReg.Name = "";
+    }
+
+    private void ResetQuestionForm()
+    {
+        this.questionsReg.Statement = "";
+        this.questionsReg.Option1 = "";
+        this.questionsReg.Option2 = "";
+        this.questionsReg.Option3 = "";
+        this.questionsReg.Option4 = "";
+        this.questionsReg.CorrectAnswer = 0;
+    }
+}

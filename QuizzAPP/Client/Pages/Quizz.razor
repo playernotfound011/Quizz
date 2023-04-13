@@ -1,0 +1,152 @@
+﻿@page "/quizz"
+@page "/quizz/{id:int}"
+@inject IQuizzService QuizzService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response
+
+<CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized>
+            <SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2" 
+                style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;"/>
+
+            <h3>@quizzes.Name</h3>
+            <h5>Autor del cuestionario: @quizzes.Creator</h5>
+            <br />
+            <hr />
+            <EditForm Model="@quizzResponse" OnSubmit="@HandleSubmitAnswer" Context="answer">                   
+                @{
+                    int questionNumber = 1;
+                }
+                @foreach (var question in questions)
+                {                   
+                    <div class="container mt-3">
+
+                        <p>@questionNumber. @question.Statement</p>
+                            <InputRadioGroup class="form-control" @bind-Value="@question.Answer" Name="@question.Id.ToString()">
+                                <div class="form-check">
+                                    <InputRadio Value="1" />
+                                    <span class="form-check-label">A. @question.Option1</span>
+                                </div>
+                                <div class="form-check">
+                                    <InputRadio Value="2" />
+                                    <span class="form-check-label">B. @question.Option2</span>
+                                </div>
+                                <div class="form-check">
+                                    <InputRadio Value="3" />
+                                    <span class="form-check-label">C. @question.Option3</span>
+                                </div>
+                                <div class="form-check">
+                                    <InputRadio Value="4" />
+                                    <span class="form-check-label">D. @question.Option4</span>
+                                </div>
+                            
+                            </InputRadioGroup>
+                        @{
+                            questionNumber++;
+                        }
+                        @if (string.IsNullOrEmpty(question.Answer))
+                        {
+                            <div class="alert alert-secondary" role="alert">
+                                Selecciona una alternativa.
+                            </div>
+                        }
+                    </div>
+                }
+                @if (showFailedMessage)
+                {
+                    <br />
+                    <div class="alert alert-danger text-center">
+                        @ResponseMessage
+                    </div>
+                }
+                <br />
+                <div class="alert alert-primary" role="alert">
+                    Si no seleccionas una alternativa no contara la respuesta.
+                </div>
+                <button type="submit" class="btn btn-primary" disabled="@spinner">Enviar</button> 
+            </EditForm>
+        </Authorized>
+    </AuthorizeView>
+</CascadingAuthenticationState>
+
+
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    public int QuizzId;
+    private QuizzQuestions quizzQuestions = new QuizzQuestions();
+    private Quizzes quizzes = new Quizzes();
+    private List<Questions> questions = new List<Questions>();
+    private ResponseQuestion responseQ = new ResponseQuestion();
+    private List<ResponseQuestion> responseQuestion = new List<ResponseQuestion>();
+    private List<int> answers = new List<int>();
+    private QuizzResponse quizzResponse = new QuizzResponse();
+    private bool spinner = false;
+    private bool showFailedMessage = false;
+    private string ResponseMessage = string.Empty;
+
+    List<int> Options { get; set; } = new List<int>
+    {
+        1,2,3,4
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        spinner = true;
+
+        if (Id != null)
+        {
+            ApiResponse<QuizzQuestions> response = await QuizzService.GetQuizzQuestion((int)Id);
+
+            quizzQuestions = response.Data;
+            quizzes = quizzQuestions.Quizz;
+            questions = quizzQuestions.Question;
+        }
+        else
+        {
+            NavigationManager.NavigateTo("quizzhome");
+        }
+
+        spinner = false;
+    }
+
+    async Task HandleSubmitAnswer(EditContext editContext)
+    {
+        spinner = true;
+        showFailedMessage = false;
+
+        foreach (Questions question in questions)
+        {
+            string answerString = (question.Answer == "1" || question.Answer == "2" || question.Answer == "3" || question.Answer == "4") ? question.Answer : "0";
+            question.Answer = answerString;
+        }
+
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token.Replace("\"", ""));
+        string user = jwt.Claims.First(c => c.Type == ClaimTypes.Name).Value;
+
+        quizzResponse.QuizzId = (int)Id;
+        quizzResponse.UserName = user;
+        quizzResponse.Questions = questions;
+
+        var response = await QuizzService.SendAnswer(quizzResponse);
+
+        if (response.Data != null)
+        {
+            QuizzId = response.Data.Id;
+
+            spinner = false;
+            NavigationManager.NavigateTo($"result/{QuizzId}");
+        }else
+        {
+            showFailedMessage = true;
+            ResponseMessage = "¡Ocurrio un problema!, intenta nuevamente.";
+        }
+    }
+}

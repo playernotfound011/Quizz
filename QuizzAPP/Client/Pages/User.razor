@@ -1,0 +1,54 @@
+﻿@page "/user"
+@inject IUserService UserService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+
+<CascadingAuthenticationState>
+    <AuthorizeView Roles="ADM">
+        <Authorized>
+            <h3>Usuarios Creados</h3>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>UserName</th>
+                        <th>User Type</th>
+                        <th>Creation Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in UserService.UserQuizzs)
+                    {
+                        <tr>
+                            <td>@user.Id</td>
+                            <td>@user.UserName</td>
+                            <td>@user.UserType</td>
+                            <td>@user.CreationDate UTC</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <br />
+            <hr />
+            <br />
+        </Authorized>
+    </AuthorizeView>
+    <AuthorizeView Roles="USR">
+        <UserRedirect />
+    </AuthorizeView>
+</CascadingAuthenticationState>
+
+
+@code {
+    private UserLogin userLog = new UserLogin();
+    private UserRegistration userReg = new UserRegistration();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UserService.GetUsers();
+    }
+}
+
+

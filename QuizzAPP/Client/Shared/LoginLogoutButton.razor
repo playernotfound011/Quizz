@@ -1,0 +1,18 @@
+﻿@inject NavigationManager NavigationManager
+@inject ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+
+<AuthorizeView>
+    <Authorized>
+        <button @onclick="logout" class="btn btn-danger">Cerrar Sesión</button>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    async Task logout()
+    {
+        await LocalStorage.RemoveItemAsync("token");
+        await AuthStateProvider.GetAuthenticationStateAsync();
+        NavigationManager.NavigateTo("/Quizz");
+    }
+}

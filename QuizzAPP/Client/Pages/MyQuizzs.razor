@@ -1,0 +1,101 @@
+﻿@page "/myquizz"
+@inject IQuizzService QuizzService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response
+
+<CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized>
+            <SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2"
+                        style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;" />
+
+            <h3>Cuestionarios</h3>
+            @if (showTableQuizz)
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Autor</th>
+                            <th></th>
+                            <th></th>
+
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var quizz in QuizzService.Quizzs)
+                        {
+                            <tr>
+                                <td>@quizz.Name</td>
+                                <td>@quizz.Creator</td>
+                                <td>
+                                    <button class="btn btn-danger" @onclick="(() => EditQuizz(quizz.Id))">Editar Preguntas</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>                                           
+            }
+            else
+            {
+                @if (showFailedMessage)
+                {
+                    <br />
+                    <br />
+                    <div class="alert alert-danger text-center">
+                        @ResponseMessage
+                    </div>
+                }
+            }
+        </Authorized>
+    </AuthorizeView>            
+</CascadingAuthenticationState>
+
+
+@code {
+    private QuizzReg QuizzReg = new QuizzReg();
+    private QuizzQuestionsUpd quizzQuestions = new QuizzQuestionsUpd();
+    private Quizzes quizzes = new Quizzes();
+    private List<QuestionsReg> questions = new List<QuestionsReg>();
+    private bool spinner = false;
+    private bool showTableQuizz = false;
+    private bool showFailedMessage = false;
+    private string ResponseMessage = "";
+    private bool showQuestions = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        spinner = true;
+
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        UserToken user = new UserToken()
+            {
+                chainValue = token
+            };
+
+        ApiResponse<List<Quizzes>> response = await QuizzService.GetAuthorQuizzList(user);
+
+        if (response != null)
+        {
+            if (response.Message == "Consulta exitosa.")
+            {
+                showTableQuizz = true;
+            }
+            else
+            {
+                ResponseMessage = "No tienes cuestionarios creados.";
+                showFailedMessage = true;
+            }
+        }
+        spinner = false;
+    }
+
+    void EditQuizz(int id)
+    {    
+        NavigationManager.NavigateTo($"question/{id}");
+    }
+}

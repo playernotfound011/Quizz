@@ -1,0 +1,141 @@
+﻿@page "/quizzhome"
+@inject IQuizzService QuizzService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response;
+
+<CascadingAuthenticationState>
+<AuthorizeView>
+        <Authorized>
+            <SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2"
+                style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;" />
+
+            <h3>Cuestionarios</h3>
+            @if (showTableQuizz)
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Autor</th>
+                            <th>Fecha de Creación</th>
+                            <th></th>
+                            <CascadingAuthenticationState>
+                                <AuthorizeView Roles="ADM" Context="edit">
+                                    <Authorized>
+                                        <th></th>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </CascadingAuthenticationState>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var quizz in QuizzService.Quizzs)
+                        {
+                            <tr>
+                                <td>@quizz.Name</td>
+                                <td>@quizz.Creator</td>
+                                <td>@quizz.CreationDate UTC</td>
+                                <td>
+                                    <button class="btn btn-primary" @onclick="(() => ShowQuizz(quizz.Id))">Intentar <i class="oi oi-arrow-right"></i></button>
+                                    <button class="btn btn-primary" @onclick="(() => ShowResults(quizz.Id))">Ver Resultados <i class="oi oi-arrow-right"></i></button>
+                                    <CascadingAuthenticationState>
+                                        <AuthorizeView Roles="ADM" Context="edit">
+                                            <Authorized>
+                                                <button class="btn btn-danger" @onclick="(() => EditQuizz(quizz.Id))">Editar Preguntas</button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </CascadingAuthenticationState>
+                                </td>
+
+
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }else
+            {
+                @if (showFailedMessage)
+                {
+                    <br />
+                    <br />
+                    <div class="alert alert-danger text-center">
+                        @ResponseMessage
+                    </div>
+                }
+            }
+            <br />
+            <hr />
+
+            <CascadingAuthenticationState>
+                <AuthorizeView Roles="USR" Context="editusr">
+                    <Authorized>
+                        <button class="btn btn-danger" @onclick="RedirectEdit">Editar Mis Cuestionarios</button>
+                    </Authorized>
+                </AuthorizeView>
+            </CascadingAuthenticationState>
+                          
+        </Authorized>
+
+    </AuthorizeView>
+    <br />
+    <hr />
+    <br />
+    <h3>Agregar nuevo cuestionario</h3>
+    <button class="btn btn-primary" @onclick="NewQuizz">Agregar nuevo</button>
+
+</CascadingAuthenticationState>
+
+@code {
+    private QuizzReg QuizzReg = new QuizzReg();
+    private bool spinner = false;
+    private bool showTableQuizz = false;
+    private bool showFailedMessage = false;
+    private string ResponseMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        spinner = true;
+        ApiResponse<List<Quizzes>> response = await QuizzService.GetQuizRegistrationList();
+
+        if (response != null)
+        {        
+            if (response.Message == "Consulta exitosa.")
+            {
+                showTableQuizz = true;
+            }
+            else
+            {
+                ResponseMessage = "No hay cuestionarios creados.";
+                showFailedMessage = true;
+            }
+        }
+        spinner = false;
+    }
+
+    void ShowQuizz(int id)
+    {
+        NavigationManager.NavigateTo($"quizz/{id}");
+    }
+
+    void ShowResults(int id)
+    {
+        NavigationManager.NavigateTo($"resultquizz/{id}");
+    }
+
+    void NewQuizz()
+    {
+        NavigationManager.NavigateTo("addquizz");
+    }
+
+    void EditQuizz(int id)
+    {
+        NavigationManager.NavigateTo($"question/{id}");
+    }
+
+    void RedirectEdit()
+    {
+        NavigationManager.NavigateTo("myquizz");
+    }
+}

@@ -1,0 +1,61 @@
+﻿@page "/result"
+@page "/result/{id:int}"
+@inject IQuizzService QuizzService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@attribute [Authorize]
+@using QuizzAPP.Shared.Models.Request
+@using QuizzAPP.Shared.Models.Response
+
+<CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized>
+            <SpinLoader IsLoading="@spinner" IsFaulted="true" Spinner="SpinnerType.Plane" Color="#5304c2"
+                style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;" />
+
+            <h3>Resultado</h3>
+            <div class="alert alert-primary" role="alert">
+                <h4 class="alert-heading">@QuizzName</h4>
+                <p>@Corrects Correctas de @TotalQuestions</p>
+                <hr>
+                <h5 class="mb-0">Tu puntuación fue de: @Score / 100</h5>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</CascadingAuthenticationState>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    public QuizzResultUser quizzResult;
+    public string QuizzName;
+    public int TotalQuestions;
+    public int Corrects;
+    public int Score = 0;
+    public string Username;
+    private bool spinner = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        spinner = true;
+
+        if (Id != null)
+        {
+            ApiResponse<QuizzResultUser> response = await QuizzService.GetSingleResult((int)Id);
+
+            quizzResult = response.Data;
+            Username = quizzResult.UserName;
+            QuizzName = quizzResult.QuizzName;
+            TotalQuestions = quizzResult.TotalQuestions;
+            Corrects = quizzResult.Corrects;
+            Score = quizzResult.Score;
+        }
+        else
+        {
+            
+        }
+
+        spinner = false;
+    }
+}

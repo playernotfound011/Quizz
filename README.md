@@ -9,4 +9,4 @@ Este es una pagina web para poder crear cuestionarios con preguntas de alternati
 - diego-carrera.xyz/Quizz
 
 # Contacto
-carreradiego122@gmail.com
+info@diego-carrera.xyz
